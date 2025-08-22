@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const os = require('os-utils');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -89,6 +90,26 @@ setInterval(() => {
     }
   }
 }, 2000); // Interval of 2 seconds
+
+
+// Add this setInterval to emit stats every second
+setInterval(() => {
+  // Get CPU usage (this is an async call)
+  os.cpuUsage(function(v){
+    const cpuUsage = (v * 100).toFixed(2); // Format to 2 decimal places
+    const freeMem = (os.freememPercentage() * 100).toFixed(2);
+    const totalMem = (os.totalmem() / 1024).toFixed(2); // In GB
+
+    // Emit stats to all connected clients
+    io.emit('stats', {
+      cpu: cpuUsage,
+      mem: {
+        free: freeMem,
+        total: totalMem
+      }
+    });
+  });
+}, 800); // Send stats every 1 second
 
 // Handle new socket connections
 io.on('connection', (socket) => {
