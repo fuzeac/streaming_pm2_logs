@@ -71,7 +71,10 @@
     <div id="logs-grid">
         <!-- Log boxes will be dynamically added here -->
     </div>
-
+    <div id="stats-container" style="position: fixed; top: 1rem; right: 1rem; background-color: #252526; padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #333; font-size: 14px; z-index: 10;">
+        CPU: <span id="cpu-usage">...</span>% | 
+        Free Mem: <span id="mem-free">...</span>%
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
@@ -160,6 +163,15 @@
                 if (isScrolledToBottom) {
                     logContentElement.scrollTop = logContentElement.scrollHeight;
                 }
+            });
+
+
+            const cpuUsageEl = document.getElementById('cpu-usage');
+            const memFreeEl = document.getElementById('mem-free');
+    
+            socket.on('stats', (stats) => {
+                cpuUsageEl.textContent = stats.cpu;
+                memFreeEl.textContent = stats.mem.free;
             });
         });
     </script>
