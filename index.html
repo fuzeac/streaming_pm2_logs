@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM2 Log Stream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .log-container {
+            height: 400px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6 text-cyan-400">PM2 Real-Time Log Stream</h1>
+        <div id="logs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Log containers will be dynamically added here -->
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const socket = io();
+            const logsGrid = document.getElementById('logs-grid');
+            const logElements = {};
+
+            // Function to create a log container for a new file
+            function createLogContainer(fileName) {
+                const container = document.createElement('div');
+                container.className = 'bg-gray-800 rounded-lg shadow-lg p-4';
+                
+                const title = document.createElement('h2');
+                title.className = 'text-xl font-semibold mb-2 text-gray-300 border-b border-gray-600 pb-2';
+                title.textContent = fileName;
+                
+                const pre = document.createElement('pre');
+                pre.className = 'log-container overflow-y-auto text-sm whitespace-pre-wrap break-words';
+                pre.style.fontFamily = 'monospace';
+                
+                container.appendChild(title);
+                container.appendChild(pre);
+                logsGrid.appendChild(container);
+
+                return pre;
+            }
+
+            socket.on('log', (msg) => {
+                const { file, data } = msg;
+
+                // Create a new container if it doesn't exist for the file
+                if (!logElements[file]) {
+                    logElements[file] = createLogContainer(file);
+                }
+
+                const logElement = logElements[file];
+                logElement.textContent += data;
+
+                // Auto-scroll to the bottom
+                logElement.scrollTop = logElement.scrollHeight;
+            });
+        });
+    </script>
+</body>
+</html>
