@@ -4,23 +4,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PM2 Log Stream</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Basic styles for the terminal look */
         body {
-            font-family: 'Inter', sans-serif;
+            background-color: #1e1e1e; /* Dark background */
+            color: #d4d4d4; /* Default light text color */
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            margin: 0;
+            padding: 1rem;
         }
-        .log-container {
-            height: 400px;
+
+        /* Grid container for the log boxes */
+        #logs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 1rem;
         }
+
+        /* Individual log box styling */
+        .log-box {
+            background-color: #252526;
+            border: 1px solid #333;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            height: 450px; /* Fixed height for each box */
+        }
+
+        /* Title for each log box */
+        .log-box-title {
+            color: #9cdcfe;
+            font-weight: bold;
+            padding: 0.75rem;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0; /* Prevent title from shrinking */
+        }
+
+        /* Container for the log content */
+        .log-content {
+            padding: 0.75rem;
+            overflow-y: auto; /* Enable scrolling within the container */
+            white-space: pre-wrap; /* Wrap long lines */
+            word-wrap: break-word;
+            font-size: 13px;
+            line-height: 1.5;
+            flex-grow: 1; /* Allow content to fill available space */
+        }
+
+        /* Style for the file name prefix within the log line */
+        .log-file-name {
+            color: #c586c0; /* Magenta/purple for the file name */
+            font-weight: bold;
+        }
+        
+        /* Color classes for different log keywords */
+        .log-keyword-engine { color: #608b4e; } /* Green */
+        .log-keyword-error { color: #f44747; } /* Red */
+        .log-keyword-warning { color: #d7ba7d; } /* Yellow */
+        .log-keyword-placed { color: #4ec9b0; } /* Cyan */
+        .log-keyword-info { color: #9cdcfe; } /* Light Blue */
+
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200">
-
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold text-center mb-6 text-cyan-400">PM2 Real-Time Log Stream</h1>
-        <div id="logs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <!-- Log containers will be dynamically added here -->
-        </div>
+<body>
+    <h1 style="text-align: center; color: #4ec9b0; margin-bottom: 1rem;">PM2 Real-Time Log Stream</h1>
+    <div id="logs-grid">
+        <!-- Log boxes will be dynamically added here -->
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -28,41 +77,89 @@
         document.addEventListener('DOMContentLoaded', (event) => {
             const socket = io();
             const logsGrid = document.getElementById('logs-grid');
-            const logElements = {};
+            const logElements = {}; // To store references to the <pre> elements
+            const MAX_LOG_LINES = 1000; // Define the maximum number of lines
 
-            // Function to create a log container for a new file
-            function createLogContainer(fileName) {
-                const container = document.createElement('div');
-                container.className = 'bg-gray-800 rounded-lg shadow-lg p-4';
-                
-                const title = document.createElement('h2');
-                title.className = 'text-xl font-semibold mb-2 text-gray-300 border-b border-gray-600 pb-2';
-                title.textContent = fileName;
-                
-                const pre = document.createElement('pre');
-                pre.className = 'log-container overflow-y-auto text-sm whitespace-pre-wrap break-words';
-                pre.style.fontFamily = 'monospace';
-                
-                container.appendChild(title);
-                container.appendChild(pre);
-                logsGrid.appendChild(container);
+            /**
+             * Applies color highlighting to specific keywords in a log line.
+             * @param {string} line - The raw log line text.
+             * @returns {string} - The HTML string with styled spans.
+             */
+            function colorizeLogLine(line) {
+                const tempDiv = document.createElement('div');
+                tempDiv.textContent = line;
+                let html = tempDiv.innerHTML;
 
-                return pre;
+                const colorRules = [
+                    { regex: /(\[Engine\]|Compressing|Widening)/gi, className: 'log-keyword-engine' },
+                    { regex: /(Error|Failed|Too Narrow)/gi, className: 'log-keyword-error' },
+                    { regex: /(⚠️|Warning|Expired|Shutdown)/gi, className: 'log-keyword-warning' },
+                    { regex: /(✅|Placed|Success|Starting|Connected)/gi, className: 'log-keyword-placed' },
+                    { regex: /(SIGINT|Server|Redis|Process)/gi, className: 'log-keyword-info' }
+                ];
+                
+                colorRules.forEach(rule => {
+                    html = html.replace(rule.regex, (match) => `<span class="${rule.className}">${match}</span>`);
+                });
+
+                return html;
             }
 
+            /**
+             * Creates a new log box for a given file name.
+             * @param {string} fileName - The name of the log file.
+             * @returns {HTMLElement} - The <pre> element where logs should be appended.
+             */
+            function createLogBox(fileName) {
+                const box = document.createElement('div');
+                box.className = 'log-box';
+
+                const title = document.createElement('div');
+                title.className = 'log-box-title';
+                title.textContent = fileName;
+
+                const content = document.createElement('pre');
+                content.className = 'log-content';
+
+                box.appendChild(title);
+                box.appendChild(content);
+                logsGrid.appendChild(box);
+
+                return content;
+            }
+
+            // Listen for 'log' events from the server
             socket.on('log', (msg) => {
                 const { file, data } = msg;
 
-                // Create a new container if it doesn't exist for the file
+                // Create a new log box if it doesn't exist for this file
                 if (!logElements[file]) {
-                    logElements[file] = createLogContainer(file);
+                    logElements[file] = createLogBox(file);
                 }
 
-                const logElement = logElements[file];
-                logElement.textContent += data;
+                const logContentElement = logElements[file];
+                const lines = data.trim().split('\n');
+                const fragment = document.createDocumentFragment();
 
-                // Auto-scroll to the bottom
-                logElement.scrollTop = logElement.scrollHeight;
+                lines.forEach(line => {
+                    if (line.trim() === '') return;
+                    const lineSpan = document.createElement('span');
+                    lineSpan.innerHTML = colorizeLogLine(line) + '\n';
+                    fragment.appendChild(lineSpan);
+                });
+                
+                const isScrolledToBottom = logContentElement.scrollHeight - logContentElement.clientHeight <= logContentElement.scrollTop + 1;
+
+                logContentElement.appendChild(fragment);
+
+                // Trim the log to the maximum number of lines
+                while (logContentElement.childElementCount > MAX_LOG_LINES) {
+                    logContentElement.removeChild(logContentElement.firstChild);
+                }
+
+                if (isScrolledToBottom) {
+                    logContentElement.scrollTop = logContentElement.scrollHeight;
+                }
             });
         });
     </script>
