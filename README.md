@@ -1,4 +1,4 @@
-# **PM2 Real-Time Log Streamer**
+# **Simple PM2 Real-Time Log Streamer**
 
 This project provides a web-based, real-time log viewer for multiple PM2 processes. It uses Node.js, Express, and Socket.io to stream log files to a web interface. It's designed to be lightweight and prevent server overload by buffering log updates.
 
